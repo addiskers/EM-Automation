@@ -11,7 +11,7 @@ COPY frontend ./frontend
 WORKDIR /app/frontend
 RUN npm install && npm run build
 
-FROM node:18 AS production
+FROM node:20 AS production
 
 WORKDIR /app
 
