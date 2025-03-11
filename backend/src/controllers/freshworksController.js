@@ -3,6 +3,7 @@ const axios = require("axios");
 exports.getFreshworksContact = async (req, res) => {
   const { email } = req.query;
   try {
+    await new Promise(resolve => setTimeout(resolve, 500));
     const response = await axios.get(
       `${process.env.FRESHWORKS_BASE_URL}/lookup?q=${email}&f=email&entities=contact`,
       {

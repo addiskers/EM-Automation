@@ -11,16 +11,26 @@ export const submitForm = async (formData) => {
 };
 
 export const fetchContactId = async (email) => {
-  try {
-    const response = await api.get(`/freshworks/lookup?email=${email}`);
-    if (response.data && response.data.id) {
-      return response.data.id;
-    } else {
-      throw new Error("No contact found");
+  const maxRetries = 3;
+  let retryCount = 0;
+  
+  while (retryCount < maxRetries) {
+    try {
+      const response = await api.get(`/freshworks/lookup?email=${email}`);
+      if (response.data && response.data.id) {
+        return response.data.id;
+      } else {
+        throw new Error("No contact found");
+      }
+    } catch (error) {
+      retryCount++;
+      if (retryCount >= maxRetries) {
+        console.error("Error fetching Freshworks contact ID after multiple attempts:", error);
+        throw error;
+      }
+      console.log(`Retry attempt ${retryCount} for fetchContactId...`);
+      await new Promise(resolve => setTimeout(resolve, 1000));
     }
-  } catch (error) {
-    console.error("Error fetching Freshworks contact ID:", error);
-    throw error;
   }
 };
 
