@@ -13,9 +13,8 @@ export const submitForm = async (formData) => {
 export const fetchContactId = async (email) => {
   try {
     const response = await api.get(`/freshworks/lookup?email=${email}`);
-    const contacts = response.data.contacts.contacts;
-    if (contacts.length > 0) {
-      return contacts[0].id;
+    if (response.data && response.data.id) {
+      return response.data.id;
     } else {
       throw new Error("No contact found");
     }
@@ -24,6 +23,7 @@ export const fetchContactId = async (email) => {
     throw error;
   }
 };
+
 export const updateContact = async (contactId, additionalData) => {
   try {
     if (!contactId) {
