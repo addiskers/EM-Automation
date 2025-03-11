@@ -1,15 +1,13 @@
 import axios from "axios";
 
-// Base Axios instance
 const api = axios.create({
-  baseURL: "http://localhost:5000/api",
-  withCredentials: true, // Allow sending cookies for CSRF
+  baseURL: process.env.REACT_APP_API_URL || "http://localhost:5000/api",
+  withCredentials: true, 
   headers: {
     "Content-Type": "application/json",
   },
 });
 
-// Fetch CSRF Token and attach it to future requests
 export const fetchCsrfToken = async () => {
   try {
     const res = await api.get("/csrf-token");
