@@ -17,6 +17,7 @@ mongoose
   .connect(process.env.MONGO_URI)
   .then(() => console.log("✅ MongoDB Connected!"))
   .catch((err) => console.error("❌ MongoDB Connection Error:", err));
+
 // Middleware
 app.use(helmet());
 app.use(express.json());
@@ -24,36 +25,63 @@ app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 app.use(morgan("dev"));
 
-// CORS Middleware
-app.use(
-  cors({
-    origin: process.env.CORS_ORIGIN,
-    credentials: true,
-  })
-);
+const corsOptions = {
+  origin: process.env.CORS_ORIGIN || "http://localhost:3000",
+  credentials: true,
+  methods: "GET,HEAD,PUT,PATCH,POST,DELETE",
+  allowedHeaders: ["Content-Type", "X-CSRF-Token"],
+  exposedHeaders: ["X-CSRF-Token"]
+};
+
+app.use(cors(corsOptions));
 
 // Express Session
 app.use(
   session({
-    secret: process.env.SECRET_KEY, 
+    secret: process.env.SECRET_KEY || "fallback-secret-key-for-development", 
     resave: false,
     saveUninitialized: false,
     cookie: {
       secure: process.env.NODE_ENV === "production", 
       httpOnly: true,
-      sameSite: "strict",
+      sameSite: process.env.NODE_ENV === "production" ? "strict" : "lax",
+      maxAge: 24 * 60 * 60 * 1000 // 24 hours
     },
   })
 );
 
-
 // CSRF Protection
-const csrfMiddleware = csrf({ cookie: true });
-app.use(csrfMiddleware);
+const csrfProtection = csrf({ 
+  cookie: { 
+    key: '_csrf',
+    httpOnly: true,
+    sameSite: process.env.NODE_ENV === "production" ? "strict" : "lax",
+    secure: process.env.NODE_ENV === "production"
+  }
+});
+
+app.use(csrfProtection);
+
 app.get("/api/csrf-token", (req, res) => {
-    res.json({ csrfToken: req.csrfToken() });
+  const token = req.csrfToken();
+  res.cookie("XSRF-TOKEN", token, {
+    httpOnly: false, 
+    sameSite: process.env.NODE_ENV === "production" ? "strict" : "lax",
+    secure: process.env.NODE_ENV === "production",
   });
-  
+  res.json({ csrfToken: token });
+});
+
+app.use((err, req, res, next) => {
+  if (err.code === 'EBADCSRFTOKEN') {
+    console.error('CSRF token validation failed:', req.headers);
+    return res.status(403).json({
+      message: 'Invalid CSRF token. Please refresh the page and try again.'
+    });
+  }
+  next(err);
+});
+
 // Routes
 app.use("/api/form", formRoutes);
 app.use("/api/freshworks", freshworksRoutes);

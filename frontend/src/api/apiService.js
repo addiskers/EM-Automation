@@ -1,7 +1,14 @@
-import api from "./axiosInstance";
+import api, { fetchCsrfToken } from "./axiosInstance";
+
+const ensureToken = async () => {
+  if (!api.defaults.headers.common["X-CSRF-Token"]) {
+    await fetchCsrfToken();
+  }
+};
 
 export const submitForm = async (formData) => {
   try {
+    await ensureToken();
     const response = await api.post("/form/submit", formData);
     return response.data;
   } catch (error) {
@@ -16,6 +23,7 @@ export const fetchContactId = async (email) => {
   
   while (retryCount < maxRetries) {
     try {
+      await ensureToken();
       const response = await api.get(`/freshworks/lookup?email=${email}`);
       if (response.data && response.data.id) {
         return response.data.id;
@@ -40,7 +48,6 @@ export const updateContact = async (contactId, additionalData) => {
       throw new Error("Contact ID is required for updating");
     }
     console.log("Updating contact with ID:", contactId, "Data:", additionalData);
-    
     const response = await api.put(`/freshworks/update/${contactId}`, additionalData);
     return response.data;
   } catch (error) {

@@ -12,6 +12,7 @@ const Form = () => {
     lastname: "",
     email: "",
     phonecode: "",
+    countryName: "", // Added country name field
     phone: "",
     company_name: "",
     designation: "",
@@ -26,14 +27,28 @@ const Form = () => {
 
   const [formData, setFormData] = useState(initialFormState);
   const [loading, setLoading] = useState(false);
+  const [csrfTokenFetched, setCsrfTokenFetched] = useState(false);
 
   useEffect(() => {
-    fetchCsrfToken();
+    // Fetch CSRF token when component mounts
+    const fetchToken = async () => {
+      try {
+        await fetchCsrfToken();
+        setCsrfTokenFetched(true);
+        console.log("CSRF token fetched successfully");
+      } catch (error) {
+        console.error("Failed to fetch CSRF token:", error);
+        toast.error("Failed to initialize form security. Please refresh the page.");
+      }
+    };
+    
+    fetchToken();
   }, []);
 
   const countryOptions = countryData.map((country) => ({
     value: country.phonecode,
     label: `${country.name} (${country.phonecode})`,
+    name: country.name // Store the country name for later use
   }));
 
   const employeeSizeOptions = [
@@ -65,11 +80,11 @@ const Form = () => {
     }));
   };
   
-
   const handlePhoneCodeChange = (selectedOption) => {
     setFormData((prev) => ({
       ...prev,
       phonecode: selectedOption ? selectedOption.value : "",
+      countryName: selectedOption ? selectedOption.name : "", 
     }));
   };
 
@@ -84,6 +99,27 @@ const Form = () => {
     e.preventDefault();
     setLoading(true);
 
+    if (!csrfTokenFetched) {
+      try {
+        await fetchCsrfToken();
+        setCsrfTokenFetched(true);
+      } catch (error) {
+        toast.error("Failed to secure the form submission. Please try again.");
+        setLoading(false);
+        return;
+      }
+    }
+
+    // Validate required fields
+    if (!formData.phonecode || !formData.countryName) {
+      toast.error("Please select a country code", {
+        position: "top-right",
+        autoClose: 3000,
+      });
+      setLoading(false);
+      return;
+    }
+
     const trimmedFormData = Object.entries(formData).reduce(
       (acc, [key, value]) => {
         acc[key] = typeof value === "string" ? value.trim() : value;
@@ -91,6 +127,8 @@ const Form = () => {
       },
       {}
     );
+
+    console.log("Submitting form data:", trimmedFormData);
 
     try {
       await submitForm(trimmedFormData);
@@ -100,34 +138,40 @@ const Form = () => {
         hideProgressBar: false,
       });
 
-      const contactId = await fetchContactId(trimmedFormData.email);
-      toast.success(`Fetched Contact ID: ${contactId}`, {
-        position: "top-right",
-        autoClose: 3000,
-        hideProgressBar: false,
-      });
+      try {
+        const contactId = await fetchContactId(trimmedFormData.email);
+        toast.success(`Fetched Contact ID: ${contactId}`, {
+          position: "top-right",
+          autoClose: 3000,
+          hideProgressBar: false,
+        });
 
-      await updateContact(contactId, {
-        company_linkedin: trimmedFormData.company_linkedin,
-        employee_size: trimmedFormData.employee_size,
-        research_requirement: trimmedFormData.research_requirement,
-        company_domain: trimmedFormData.company_domain,
-        productCode: trimmedFormData.productCode,
-      });
-      toast.success("Freshworks contact updated successfully!", {
-        position: "top-right",
-        autoClose: 3000,
-        hideProgressBar: false,
-      });
+        await updateContact(contactId, {
+          company_linkedin: trimmedFormData.company_linkedin,
+          employee_size: trimmedFormData.employee_size,
+          research_requirement: trimmedFormData.research_requirement,
+          company_domain: trimmedFormData.company_domain,
+          productCode: trimmedFormData.productCode,
+        });
+        toast.success("Freshworks contact updated successfully!", {
+          position: "top-right",
+          autoClose: 3000,
+          hideProgressBar: false,
+        });
+      } catch (contactError) {
+        console.error("Error with Freshworks operations:", contactError);
+        toast.warning("Form submitted, but contact update failed.");
+      }
 
       setFormData(initialFormState);
     } catch (error) {
-      toast.error("Something went wrong. Check console for details.", {
+      const errorMessage = error.response?.data?.message || "Something went wrong. Please try again.";
+      toast.error(errorMessage, {
         position: "top-right",
         autoClose: 3000,
         hideProgressBar: false,
       });
-      console.error(error);
+      console.error("Form submission error:", error);
     } finally {
       setLoading(false);
     }
@@ -200,9 +244,10 @@ const Form = () => {
                     styles={selectStyles}
                     options={countryOptions}
                     onChange={handlePhoneCodeChange}
-                    placeholder="Country Code"
+                    placeholder="Country Code *"
                     value={defaultCountryOption}
                     isClearable
+                    required
                   />
                 </div>
                 <div style={styles.inputGroup}>
@@ -307,8 +352,12 @@ const Form = () => {
           </div>
 
           <div style={styles.submitContainer}>
-            <button style={styles.submitButton} type="submit" disabled={loading}>
-              {loading ? "Processing..." : "Submit Request"}
+            <button 
+              style={styles.submitButton} 
+              type="submit" 
+              disabled={loading || !csrfTokenFetched}
+            >
+              {loading ? "Processing..." : !csrfTokenFetched ? "Initializing..." : "Submit Request"}
             </button>
           </div>
         </form>
