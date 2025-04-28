@@ -12,7 +12,7 @@ const Form = () => {
     lastname: "",
     email: "",
     phonecode: "",
-    countryName: "", // Added country name field
+    countryName: "", 
     phone: "",
     company_name: "",
     designation: "",
@@ -23,6 +23,8 @@ const Form = () => {
     employee_size: "",
     research_requirement: "",
     company_domain: "",
+    reportExist: null, // Added reportExist field
+    market_name: "", // Added market_name field
   };
 
   const [formData, setFormData] = useState(initialFormState);
@@ -30,7 +32,6 @@ const Form = () => {
   const [csrfTokenFetched, setCsrfTokenFetched] = useState(false);
 
   useEffect(() => {
-    // Fetch CSRF token when component mounts
     const fetchToken = async () => {
       try {
         await fetchCsrfToken();
@@ -45,10 +46,12 @@ const Form = () => {
     fetchToken();
   }, []);
 
+  // Fix country options to ensure unique identification
   const countryOptions = countryData.map((country) => ({
     value: country.phonecode,
     label: `${country.name} (${country.phonecode})`,
-    name: country.name // Store the country name for later use
+    name: country.name,
+    uniqueId: `${country.name}_${country.phonecode}` // Add a unique identifier
   }));
 
   const employeeSizeOptions = [
@@ -62,13 +65,26 @@ const Form = () => {
     { value: "10000+", label: "10000+ employees" },
   ];
 
-  const defaultCountryOption = countryOptions.find(
-    (option) => option.value === formData.phonecode
-  ) || null;
+  // Add reportExist options
+  const reportExistOptions = [
+    { value: null, label: "Select report status" },
+    { value: true, label: "Yes" },
+    { value: false, label: "No" }
+  ];
+
+  // Fix the default country option logic to find the exact country match
+  const defaultCountryOption = formData.phonecode && formData.countryName ? 
+    countryOptions.find(
+      (option) => option.value === formData.phonecode && option.name === formData.countryName
+    ) : null;
 
   const defaultEmployeeSizeOption = employeeSizeOptions.find(
     (option) => option.value === formData.employee_size
   ) || null;
+
+  const defaultReportExistOption = reportExistOptions.find(
+    (option) => option.value === formData.reportExist
+  ) || reportExistOptions[0];
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -95,6 +111,29 @@ const Form = () => {
     }));
   };
 
+  const handleReportExistChange = (selectedOption) => {
+    // Reset report fields when changing report status
+    setFormData((prev) => {
+      // If No is selected or no option is selected, reset slug, productCode
+      if (selectedOption.value === false || selectedOption.value === null) {
+        return {
+          ...prev,
+          reportExist: selectedOption.value,
+          slug: "",
+          productCode: "",
+          // Keep market_name for "No" but reset for null
+          market_name: selectedOption.value === false ? prev.market_name : ""
+        };
+      } else {
+        // Keep existing values if Yes is selected
+        return {
+          ...prev,
+          reportExist: selectedOption.value
+        };
+      }
+    });
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
@@ -110,7 +149,6 @@ const Form = () => {
       }
     }
 
-    // Validate required fields
     if (!formData.phonecode || !formData.countryName) {
       toast.error("Please select a country code", {
         position: "top-right",
@@ -152,6 +190,8 @@ const Form = () => {
           research_requirement: trimmedFormData.research_requirement,
           company_domain: trimmedFormData.company_domain,
           productCode: trimmedFormData.productCode,
+          reportExist: trimmedFormData.reportExist,
+          market_name: trimmedFormData.market_name,
         });
         toast.success("Freshworks contact updated successfully!", {
           position: "top-right",
@@ -248,6 +288,7 @@ const Form = () => {
                     value={defaultCountryOption}
                     isClearable
                     required
+                    getOptionValue={(option) => option.uniqueId} // Use uniqueId for option value
                   />
                 </div>
                 <div style={styles.inputGroup}>
@@ -328,26 +369,50 @@ const Form = () => {
 
             <div style={styles.formGroup}>
               <label style={styles.label}>Reference Information</label>
-              <div style={styles.inputRow}>
-                <div style={styles.inputGroup}>
-                  <input
-                    style={styles.input}
-                    name="slug"
-                    placeholder="Slug"
-                    value={formData.slug}
-                    onChange={handleChange}
-                  />
-                </div>
-                <div style={styles.inputGroup}>
-                  <input
-                    style={styles.input}
-                    name="productCode"
-                    placeholder="SQ Code"
-                    value={formData.productCode}
-                    onChange={handleChange}
-                  />
-                </div>
+              
+              <div style={styles.inputGroup}>
+                <Select
+                  styles={selectStyles}
+                  options={reportExistOptions}
+                  onChange={handleReportExistChange}
+                  placeholder="Report Exists?"
+                  value={defaultReportExistOption}
+                />
               </div>
+              
+              <div style={styles.inputGroup}>
+                <input
+                  style={styles.input}
+                  name="market_name"
+                  placeholder="Market Name"
+                  value={formData.market_name}
+                  onChange={handleChange}
+                  disabled={formData.reportExist === null}
+                />
+              </div>
+
+              {formData.reportExist === true && (
+                <div style={styles.inputRow}>
+                  <div style={styles.inputGroup}>
+                    <input
+                      style={styles.input}
+                      name="slug"
+                      placeholder="Slug"
+                      value={formData.slug}
+                      onChange={handleChange}
+                    />
+                  </div>
+                  <div style={styles.inputGroup}>
+                    <input
+                      style={styles.input}
+                      name="productCode"
+                      placeholder="SQ Code"
+                      value={formData.productCode}
+                      onChange={handleChange}
+                    />
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 

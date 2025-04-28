@@ -11,6 +11,8 @@ const leadSchema = new mongoose.Schema({
   designation: String,
   message: String,
   slug: String,
+  market_name: String,
+  reportExist: Boolean,
   productCode: String,
   company_linkedin: String,
   employee_size: String,
