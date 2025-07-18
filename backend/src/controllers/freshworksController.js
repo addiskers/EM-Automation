@@ -3,7 +3,10 @@ const axios = require("axios");
 exports.getFreshworksContact = async (req, res) => {
   const { email } = req.query;
   try {
-    await new Promise(resolve => setTimeout(resolve, 500));
+    await new Promise(resolve => setTimeout(resolve, 2000));
+    
+    console.log(` Searching for contact: ${email}`);
+    
     const response = await axios.get(
       `${process.env.FRESHWORKS_BASE_URL}/lookup?q=${email}&f=email&entities=contact`,
       {
@@ -11,8 +14,8 @@ exports.getFreshworksContact = async (req, res) => {
           Authorization: `Token token=${process.env.FRESHWORKS_API_KEY}`,
         },
       }
-    );
-    const contacts = response.data.contacts.contacts;
+    );    
+    const contacts = response.data.contacts?.contacts || [];
     if (contacts.length > 0) {
       const safeContact = {
         id: contacts[0].id,
@@ -21,14 +24,18 @@ exports.getFreshworksContact = async (req, res) => {
       };
       return res.status(200).json(safeContact);
     } else {
+      console.log("No contacts found in response");
       return res.status(404).json({ message: "No contact found" });
     }
   } catch (error) {
-    console.error("Error fetching Freshworks contact:", error);
+    console.error("Error fetching Freshworks contact:", {
+      message: error.message,
+      status: error.response?.status,
+      data: error.response?.data
+    });
     res.status(500).json({ message: "Failed to retrieve contact" });
   }
 };
-
 exports.updateFreshworksContact = async (req, res) => {
   const { id } = req.params;
   const { company_linkedin, employee_size, research_requirement, company_domain, productCode } = req.body;
