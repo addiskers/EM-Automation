@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   frontend:
     build:
@@ -31,7 +29,10 @@ services:
     restart: unless-stopped
     networks:
       - emlead-network
+      - shared-network
 
 networks:
   emlead-network:
     driver: bridge
+  shared-network:
+    external: true
